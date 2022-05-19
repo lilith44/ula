@@ -176,10 +176,11 @@ func (m *migu) getRecordUrls(id string, options *options) (cameras []Camera, err
 
 func (m *migu) getViewerNum(id string, options *options) (viewerNum int64, err error) {
 	userOnlineReq := &miguUserOnlineReq{
-		Channel:  id,
-		Time:     time.Now().Unix(),
-		Platform: "LIVE",
-		Type:     1,
+		Channel:   strings.Split(id, "_")[1],
+		BeginTime: time.Now().Add(-time.Hour).UnixNano() / 1e6,
+		EndTime:   time.Now().UnixNano() / 1e6,
+		Platform:  "LIVE",
+		Type:      0,
 	}
 
 	userOnlineRsp := new(miguUserOnlineRsp)
@@ -188,8 +189,9 @@ func (m *migu) getViewerNum(id string, options *options) (viewerNum int64, err e
 	}
 
 	if len(userOnlineRsp.Result.Content) != 0 {
-		if len(userOnlineRsp.Result.Content[0].Datas) != 0 {
-			viewerNum = userOnlineRsp.Result.Content[0].Datas[0].Num
+		last := userOnlineRsp.Result.Content[len(userOnlineRsp.Result.Content)-1].Datas
+		if len(last) != 0 {
+			viewerNum = last[len(last)-1].Num
 		}
 	}
 
