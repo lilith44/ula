@@ -9,6 +9,7 @@ import (
 	`strings`
 	`time`
 
+	`github.com/go-resty/resty/v2`
 	`github.com/storezhang/gox`
 )
 
@@ -174,16 +175,23 @@ func (m *migu) getRecordUrls(id string, options *options) (cameras []Camera, err
 }
 
 func (m *migu) getViewerNum(id string, options *options) (viewerNum int64, err error) {
-	pullReq := &miguStreamReq{
-		ChannelId: id,
+	userOnlineReq := &miguUserOnlineReq{
+		Channel:  id,
+		Time:     time.Now().Unix(),
+		Platform: "LIVE",
+		Type:     1,
 	}
 
-	pullRsp := new(miguPullRsp)
-	if err = m.invoke(m.pullEndpoint(options), pullReq, pullRsp, gox.HttpMethodGet, options); nil != err {
+	userOnlineRsp := new(miguUserOnlineRsp)
+	if err = m.invoke(m.listUserOnlineEndpoint(options), userOnlineReq, userOnlineRsp, gox.HttpMethodPost, options); nil != err {
 		return
 	}
 
-	viewerNum = int64(pullRsp.Result.ViewerNum)
+	if len(userOnlineRsp.Result.Content) != 0 {
+		if len(userOnlineRsp.Result.Content[0].Datas) != 0 {
+			viewerNum = userOnlineRsp.Result.Content[0].Datas[0].Num
+		}
+	}
 
 	return
 }
@@ -218,6 +226,10 @@ func (m *migu) listVidEndpoint(options *options) string {
 
 func (m *migu) vodVerifyHttpsUrlEndpoint(options *options) string {
 	return fmt.Sprintf("%s/vod2/v1/getUrlVerifyForHttps", options.migu.endpoint)
+}
+
+func (m *migu) listUserOnlineEndpoint(options *options) string {
+	return fmt.Sprintf("%s/stats/biz/listUsersonline", options.migu.endpoint)
 }
 
 func (m *migu) invoke(api string, req interface{}, rsp interface{}, method gox.HttpMethod, options *options) (err error) {
@@ -294,13 +306,13 @@ func (m *migu) invoke(api string, req interface{}, rsp interface{}, method gox.H
 		options.migu.uid,
 		token,
 	)
-	// var miguRsp *resty.Response
+	var miguRsp *resty.Response
 	if gox.HttpMethodGet == method {
-		_, err = options.req().SetQueryParams(getReqMap).SetResult(rsp).Get(api)
+		miguRsp, err = options.req().SetQueryParams(getReqMap).SetResult(rsp).Get(api)
 	} else {
-		_, err = options.req().SetBody(req).SetResult(rsp).Post(api)
+		miguRsp, err = options.req().SetBody(req).SetResult(rsp).Post(api)
 	}
-	// fmt.Println(miguRsp)
+	fmt.Println(miguRsp)
 
 	return
 }
